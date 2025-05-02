@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des Examens</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .exam-card {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+        }
+
+        .question {
+            margin-left: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Plateforme d'examens</h1>
+
+    <% if (role==='enseignant' ) { %>
+        <h2>Statut des étudiants</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>Statut</th>
+                    <th>Dernière activité</th>
+                </tr>
+            </thead>
+            <tbody id="user-status-table">
+                <tr>
+                    <td colspan="3">Chargement...</td>
+                </tr>
+            </tbody>
+        </table>
+        <% } %>
+
+            <% if (role==='enseignant' ) { %>
+                <h2>Créer un examen</h2>
+                <form action="/exam/create" method="POST">
+                    <input type="text" name="title" placeholder="Titre" required><br>
+                    <input type="number" name="duration" placeholder="Durée (minutes)" required><br>
+                    <input type="number" name="note" placeholder="Note maximale" required><br>
+                    <select name="status" required>
+                        <option value="à venir">À venir</option>
+                        <option value="disponible">Disponible</option>
+                        <option value="terminé">Terminé</option>
+                    </select><br><br>
+
+                    <div id="questions"></div>
+                    <button type="button" onclick="addQuestion()">Ajouter une question</button><br><br>
+                    <button type="submit">Créer l'examen</button>
+                </form>
+                <hr>
+                <% } %>
+
+                    <h2>Examens</h2>
+                    <% exams.forEach(exam=> { %>
+                        <div class="exam-card">
+                            <div><span class="label">Titre:</span>
+                                <%= exam.title %>
+                            </div>
+                            <div><span class="label">Statut:</span>
+                                <%= exam.status %>
+                            </div>
+                            <div><span class="label">Durée:</span>
+                                <%= exam.duration %> min
+                            </div>
+                            <div><span class="label">Note:</span>
+                                <%= exam.note %>
+                            </div>
+
+                            <% if (role==='etudiant' && exam.status==='disponible' ) { %>
+                                <form action="/exam/<%= exam._id %>/submit" method="POST">
+                                    <% exam.questions.forEach((q, index)=> { %>
+                                        <div class="question">
+                                            <p>
+                                                <%= q.question %>
+                                            </p>
+                                            <% if (q.type==='qcm' ) { %>
+                                                <% q.options.forEach(opt=> { %>
+                                                    <label><input type="radio" name="responses[<%= index %>]"
+                                                            value="<%= opt %>">
+                                                        <%= opt %>
+                                                    </label><br>
+                                                    <% }) %>
+                                                        <% } else { %>
+                                                            <input type="text" name="responses[<%= index %>]"><br>
+                                                            <% } %>
+                                        </div>
+                                        <% }) %>
+                                            <input type="hidden" name="studentName" value="<%= username %>">
+                                            <button type="submit">Soumettre</button>
+                                </form>
+                                <% } else if (role==='etudiant' ) { %>
+                                    <p><em>
+                                            <%= exam.status==='à venir' ? 'Examen à venir' : 'Examen terminé' %>
+                                        </em></p>
+                                    <% } %>
+
+                                        <% if (role==='enseignant' ) { %>
+                                            <h4>Questions</h4>
+                                            <% exam.questions.forEach((q, i)=> { %>
+                                                <div class="question">
+                                                    <p>
+                                                        <%= q.question %> <em>(type: <%= q.type %>)</em>
+                                                    </p>
+                                                    <% if (q.type==='qcm' ) { %>
+                                                        <ul>
+                                                            <% q.options.forEach(opt=> { %>
+                                                                <li>
+                                                                    <%= opt %>
+                                                                        <% if (opt===q.correctAnswer) { %>
+                                                                            <strong>(✓)</strong>
+                                                                            <% } %>
+                                                                </li>
+                                                                <% }) %>
+                                                        </ul>
+                                                        <% } else { %>
+                                                            <p>Réponse correcte: <strong>
+                                                                    <%= q.correctAnswer %>
+                                                                </strong></p>
+                                                            <% } %>
+                                                </div>
+                                                <% }) %>
+                                                    <% } %>
+                        </div>
+                        <% }) %>
+
+                            <script>
+                                let questionIndex = 0;
+                                function addQuestion() {
+                                    const container = document.getElementById('questions');
+                                    const div = document.createElement('div');
+                                    div.className = 'question';
+                                    div.innerHTML = `
+                <input type="text" name="questions[${questionIndex}][question]" placeholder="Intitulé de la question" required><br>
+                <select name="questions[${questionIndex}][type]" onchange="toggleOptions(this, ${questionIndex})">
+                    <option value="qcm">QCM</option>
+                    <option value="direct">Réponse directe</option>
+                </select><br>
+                <div id="options-${questionIndex}">
+                    <input type="text" name="questions[${questionIndex}][options][]" placeholder="Option 1"><br>
+                    <input type="text" name="questions[${questionIndex}][options][]" placeholder="Option 2"><br>
+                    <input type="text" name="questions[${questionIndex}][options][]" placeholder="Option 3"><br>
+                    <input type="text" name="questions[${questionIndex}][options][]" placeholder="Option 4"><br>
+                </div>
+                <input type="text" name="questions[${questionIndex}][correctAnswer]" placeholder="Bonne réponse" required><br><br>
+            `;
+                                    container.appendChild(div);
+                                    questionIndex++;
+                                }
+
+                                function toggleOptions(selectEl, index) {
+                                    const optionsDiv = document.getElementById(`options-${index}`);
+                                    optionsDiv.classList.toggle('hidden', selectEl.value !== 'qcm');
+                                }
+
+        <% if (role === 'enseignant') { %>
+                                    function fetchOnlineStatus() {
+                                        fetch('/exam/users/online-status')
+                                            .then(res => res.json())
+                                            .then(data => {
+                                                const tbody = document.getElementById('user-status-table');
+                                                tbody.innerHTML = '';
+                                                data.forEach(user => {
+                                                    const row = `<tr>
+                            <td>${user.name}</td>
+                            <td>${user.status}</td>
+                            <td>${new Date(user.lastSeen).toLocaleString()}</td>
+                        </tr>`;
+                                                    tbody.innerHTML += row;
+                                                });
+                                            })
+                                            .catch(err => {
+                                                document.getElementById('user-status-table').innerHTML = '<tr><td colspan="3">Erreur de chargement</td></tr>';
+                                                console.error(err);
+                                            });
+                                    }
+
+                                    fetchOnlineStatus();
+                                    setInterval(fetchOnlineStatus, 10000);
+        <% } %>
+
+        <% if (role === 'etudiant') { %>
+                                    setInterval(() => {
+                                        fetch('/exam/users/ping', { method: 'POST' });
+                                    }, 5000);
+        <% } %>
+                            </script>
+</body>
+
+</html>
